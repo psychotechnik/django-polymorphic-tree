@@ -26,7 +26,7 @@ else:
         title = _('node type')
 
         def lookups(self, request, model_admin):
-            return model_admin.get_child_type_choices()
+            return model_admin.get_child_type_choices(request)
 
         def queryset(self, request, queryset):
             if self.value():
@@ -111,7 +111,7 @@ class PolymorphicMPTTParentModelAdmin(PolymorphicParentModelAdmin, MPTTModelAdmi
         if not node.can_have_children:
             return False
 
-        # or a static variable declared on the class (avoids need for downcasted models).
+        # or a static variable declared on the class (avoids need for upcasted models).
         NodeClass = node.get_real_instance_class()
         return bool(NodeClass.can_have_children)
 
@@ -145,7 +145,7 @@ class PolymorphicMPTTParentModelAdmin(PolymorphicParentModelAdmin, MPTTModelAdmi
         Update the position of a node, from a API request.
         """
         try:
-            # Not using .non_polymorphic() so all models are downcasted to the derived model.
+            # Not using .non_polymorphic() so all models are upcasted to the derived model.
             # This causes the signal below to be emitted from the proper class as well.
             moved = self.model.objects.get(pk=request.POST['moved_id'])
             target = self.model.objects.get(pk=request.POST['target_id'])
@@ -161,6 +161,14 @@ class PolymorphicMPTTParentModelAdmin(PolymorphicParentModelAdmin, MPTTModelAdmi
         if moved.parent_id != previous_parent_id:
             return HttpResponse(simplejson.dumps({'action': 'reload', 'error': 'Client seems to be out-of-sync, please reload!'}), content_type='application/json', status=409)
 
+        print '------------------'
+        print "moved %s " % moved
+        print "target %s " % target
+        for model, _, allowed_parent_models in self.get_child_models():
+            if isinstance(moved, model) and not isinstance(moved, allowed_parent_models):
+                print "error???"
+                return HttpResponse(simplejson.dumps({'action': 'reject', 'error': '!!!! Cannot move inside target, parent does not allow this type of nodes as children!!!'}), content_type='application/json', status=409)  # Conflict
+        print '------------------'
         # TODO: with granular user permissions, check if user is allowed to edit both pages.
 
         mptt_position = {

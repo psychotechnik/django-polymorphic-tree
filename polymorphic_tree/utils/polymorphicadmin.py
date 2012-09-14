@@ -88,9 +88,10 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
         # By not having this in __init__() there is less stress on import dependencies as well,
         # considering an advanced use cases where a plugin system scans for the child models.
         child_models = self.get_child_models()
-        for Model, Admin in child_models:
+        for Model, Admin, _ in child_models:
             self.register_child(Model, Admin)
-        self._child_models = dict(child_models)
+
+        self._child_models = map(lambda m: m[0], child_models)
 
         # This is needed to deal with the improved ForeignKeyRawIdWidget in Django 1.4 and perhaps other widgets too.
         # The ForeignKeyRawIdWidget checks whether the referenced model is registered in the admin, otherwise it displays itself as a textfield.
@@ -134,14 +135,26 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
         return self.child_models
 
 
-    def get_child_type_choices(self):
+    def get_child_type_choices(self, request, filter_by_parent=False):
         """
         Return a list of polymorphic types which can be added.
         """
+
+        if request.GET.get('parent', '') != '':
+            parent_instance = self.base_model.objects.get(
+                                            pk=request.GET.get('parent', '')
+            )
+            parent_class = parent_instance.get_real_instance_class()
+
         choices = []
-        for model, _ in self.get_child_models():
-            ct = ContentType.objects.get_for_model(model)
-            choices.append((ct.id, model._meta.verbose_name))
+        for model, _, allowed_parent_models in self.get_child_models():
+            if filter_by_parent == True:
+                if parent_class in allowed_parent_models:
+                    ct = ContentType.objects.get_for_model(model)
+                    choices.append((ct.id, model._meta.verbose_name))
+            else:
+                ct = ContentType.objects.get_for_model(model)
+                choices.append((ct.id, model._meta.verbose_name))
         return choices
 
 
@@ -234,7 +247,7 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
         # Add reverse names for all polymorphic models, so the delete button and "save and add" just work.
         # These definitions are masked by the definition above, since it needs special handling (and a ct_id parameter).
         dummy_urls = []
-        for model, _ in self.get_child_models():
+        for model, _, _ in self.get_child_models():
             admin = self._get_real_admin_by_model(model)
             dummy_urls += admin.get_urls()
 
@@ -265,8 +278,7 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
         extra_qs = ''
         if request.META['QUERY_STRING']:
             extra_qs = '&' + request.META['QUERY_STRING']
-
-        choices = self.get_child_type_choices()
+        choices = self.get_child_type_choices(request, filter_by_parent=True)
         if len(choices) == 1:
             return HttpResponseRedirect('?ct_id={0}{1}'.format(choices[0][0], extra_qs))
 
