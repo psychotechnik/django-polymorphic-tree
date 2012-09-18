@@ -139,8 +139,8 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
         """
         Return a list of polymorphic types which can be added.
         """
-
-        if request.GET.get('parent', '') != '':
+        parent_class = None
+        if request.GET.get('parent'):
             parent_instance = self.base_model.objects.get(
                                             pk=request.GET.get('parent', '')
             )
@@ -148,7 +148,7 @@ class PolymorphicParentModelAdmin(admin.ModelAdmin):
 
         choices = []
         for model, _, allowed_parent_models in self.get_child_models():
-            if filter_by_parent == True:
+            if parent_class and filter_by_parent == True:
                 if parent_class in allowed_parent_models:
                     ct = ContentType.objects.get_for_model(model)
                     choices.append((ct.id, model._meta.verbose_name))
