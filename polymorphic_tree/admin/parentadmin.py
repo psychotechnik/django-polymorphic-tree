@@ -157,18 +157,13 @@ class PolymorphicMPTTParentModelAdmin(PolymorphicParentModelAdmin, MPTTModelAdmi
             return HttpResponseNotFound(simplejson.dumps({'action': 'reload', 'error': str(e[0])}), content_type='application/json')
 
         if not self.can_have_children(target) and position == 'inside':
-            return HttpResponse(simplejson.dumps({'action': 'reject', 'error': 'Cannot move inside target, does not allow children!'}), content_type='application/json', status=409)  # Conflict
+            return HttpResponse(simplejson.dumps({'action': 'reject', 'error': 'Cannot move inside %s, does not allow children!' % (target._meta.verbose_name.title())}), content_type='application/json', status=409)  # Conflict
         if moved.parent_id != previous_parent_id:
             return HttpResponse(simplejson.dumps({'action': 'reload', 'error': 'Client seems to be out-of-sync, please reload!'}), content_type='application/json', status=409)
 
-        print '------------------'
-        print "moved %s " % moved
-        print "target %s " % target
         for model, _, allowed_parent_models in self.get_child_models():
-            if isinstance(moved, model) and not isinstance(moved, allowed_parent_models):
-                print "error???"
-                return HttpResponse(simplejson.dumps({'action': 'reject', 'error': '!!!! Cannot move inside target, parent does not allow this type of nodes as children!!!'}), content_type='application/json', status=409)  # Conflict
-        print '------------------'
+            if isinstance(moved, model) and not isinstance(target, allowed_parent_models):
+                return HttpResponse(simplejson.dumps({'action': 'reject', 'error': 'Cannot move %s inside %s.' % (model._meta.verbose_name.title(), target._meta.verbose_name.title())}), content_type='application/json', status=409)  # Conflict
         # TODO: with granular user permissions, check if user is allowed to edit both pages.
 
         mptt_position = {
