@@ -1,3 +1,16 @@
+Changes in version 0.8.4 (alpha release)
+----------------------------------------
+
+* Fix list appearance in combination with django-grapelli
+
+
+Changes in version 0.8.3 (alpha release)
+----------------------------------------
+
+* Fix row alignment in the admin interface
+* Spelling and typoo fixes, print statement
+
+
 Changes in version 0.8.2 (alpha release)
 ----------------------------------------
 
